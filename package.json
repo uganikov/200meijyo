@@ -1,0 +1,20 @@
+{
+  "name": "map-server",
+  "version": "1.0.0",
+  "description": "Server for preprocessing and serving Japan union GeoJSON (N03-2025)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@turf/turf": "^7.3.0",
+    "better-sqlite3": "^12.5.0",
+    "express": "^4.19.2",
+    "stream-chain": "^2.2.5",
+    "stream-json": "^1.8.0",
+    "unzipper": "^0.12.3"
+  },
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,312 @@
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>200名城</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP",
+        "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    }
+    #map { height: 600px; }
+    #stats { margin-top: 10px; font-size: 16px; }
+    #editModeBtn {
+      margin: 10px 0;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>200名城マップ</h1>
+
+  <!-- 編集モードボタン -->
+  <button id="editModeBtn">編集モード: OFF</button>
+
+  <div id="map"></div>
+  <div id="stats"></div>
+
+  <script>
+    const map = L.map("map", { doubleClickZoom: false }).setView(
+      [35.68, 139.76],
+      5
+    );
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    let visited = JSON.parse(localStorage.getItem("visitedTargets")) || {};
+    const layers = {};
+    const markers = {};
+    const dblClickThreshold = 300;
+    let polygonLayer = null;
+
+    // 編集モード状態
+    let editMode = false;
+
+    document.getElementById("editModeBtn").onclick = () => {
+      editMode = !editMode;
+      document.getElementById("editModeBtn").textContent =
+        `編集モード: ${editMode ? "ON" : "OFF"}`;
+
+      // 編集モード切替時にピンのドラッグ可否を更新
+      Object.values(markers).forEach((m) => {
+        if (editMode) m.dragging.enable();
+        else m.dragging.disable();
+      });
+
+      // ★ ポリゴン表示の ON/OFF
+      if (editMode) {
+	  if (polygonLayer) map.removeLayer(polygonLayer);
+      } else {
+	  if (polygonLayer) polygonLayer.addTo(map);
+      }
+    };
+
+    // --- ピンアイコン ---
+    const iconBlue = new L.Icon({
+      iconUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
+      shadowUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+    });
+
+    const iconRed = new L.Icon({
+      iconUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+      shadowUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+    });
+
+    // スタンプ設置場所用の控えめグレー細ピン
+    const iconGraySmall = new L.Icon({
+      iconUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png",
+      shadowUrl:
+        "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-shadow.png",
+      iconSize: [18, 30],
+      iconAnchor: [9, 30],
+      popupAnchor: [1, -24],
+      shadowSize: [30, 30],
+    });
+
+    // --- series → アイコン辞書 ---
+    const seriesColor = {};
+    const availableIcons = [iconBlue, iconRed];
+    let iconIndex = 0;
+
+    function getIconForSeries(series) {
+      if (series === "スタンプ設置場所") {
+        return iconGraySmall;
+      }
+      if (!seriesColor[series]) {
+        seriesColor[series] =
+          availableIcons[iconIndex % availableIcons.length];
+        iconIndex++;
+      }
+      return seriesColor[series];
+    }
+
+    // --- UI 更新 ---
+    function updateUI(id) {
+      const isVisited = !!visited[id];
+
+      if (layers[id]) {
+        layers[id].setStyle(
+          isVisited
+            ? { color: "red", fillColor: "pink", fillOpacity: 0.3 }
+            : { color: "blue", fillColor: "lightblue", fillOpacity: 0.1 }
+        );
+      }
+    }
+
+    // --- 訪問済みトグル ---
+    function attachVisitHandlers(id) {
+      return {
+        click: () => {
+          if (editMode) return; // 編集モード中は無効化
+          const now = Date.now();
+          if (!visited[id]) {
+            visited[id] = { last_visit: now };
+            localStorage.setItem("visitedTargets", JSON.stringify(visited));
+            updateUI(id);
+            updateStats();
+          }
+        },
+        dblclick: (e) => {
+          if (editMode) return; // 編集モード中は無効化
+          const now = Date.now();
+          if (visited[id] && now - visited[id].last_visit < dblClickThreshold) {
+            L.DomEvent.stop(e);
+            return;
+          }
+          if (visited[id]) {
+            delete visited[id];
+            localStorage.setItem("visitedTargets", JSON.stringify(visited));
+            updateUI(id);
+            updateStats();
+          }
+          L.DomEvent.stop(e);
+        },
+      };
+    }
+
+    // --- 強調処理 ---
+    function highlightParentCastle(parentId) {
+      if (editMode) return; // 編集モード中は hover 無効化
+
+      Object.values(markers).forEach(m => m.setOpacity(0.2));
+      if (markers[parentId]) markers[parentId].setOpacity(1);
+
+      Object.keys(layers).forEach(id => {
+        layers[id].setStyle({
+          color: "blue",
+          weight: 1,
+          fillColor: "lightblue",
+          fillOpacity: 0.1,
+        });
+      });
+
+      if (layers[parentId]) {
+        layers[parentId].setStyle({
+          color: "red",
+          weight: 2,
+          fillColor: "pink",
+          fillOpacity: 0.4,
+        });
+      }
+    }
+
+    function resetHighlight() {
+      if (editMode) return; // 編集モード中は hover 無効化
+      Object.values(markers).forEach(m => m.setOpacity(1));
+      Object.keys(layers).forEach(id => updateUI(id));
+    }
+
+    // --- ピン描画（ポリゴンとは独立） ---
+    function drawPins(targetList) {
+      targetList.forEach((t) => {
+        const marker = L.marker([t.lat, t.lng], {
+          icon: getIconForSeries(t.series),
+          draggable: false,
+        })
+          .addTo(map)
+          .bindTooltip(t.name, {
+            permanent: false,
+            direction: "top",
+            offset: [0, -10],
+          });
+
+        markers[t.id] = marker;
+
+        const handlers = attachVisitHandlers(t.id);
+        marker.on("click", handlers.click);
+        marker.on("dblclick", handlers.dblclick);
+
+        if (t.series === "スタンプ設置場所" && t.meta?.parent_target_id) {
+          const parentId = t.meta.parent_target_id;
+          marker.on("mouseover", () => highlightParentCastle(parentId));
+          marker.on("mouseout", () => resetHighlight());
+        }
+
+        marker.on("dragend", (e) => {
+          if (!editMode) return;
+
+          const { lat, lng } = e.target.getLatLng();
+          const ok = confirm(
+            `${t.name} の位置を更新しますか？\n(${lat.toFixed(6)}, ${lng.toFixed(6)})`
+          );
+
+          if (!ok) {
+            marker.setLatLng([t.lat, t.lng]);
+          } else {
+            fetch(`/target/${t.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lat, lng }),
+            })
+              .then(res => res.json())
+              .then(data => console.log("更新成功:", data))
+              .catch(err => {
+                console.error("更新失敗:", err);
+                marker.setLatLng([t.lat, t.lng]);
+              });
+          }
+        });
+      });
+
+      updateStats();
+    }
+
+    // --- ポリゴン描画（非同期） ---
+    function loadPolygons() {
+      fetch("/clipped-polygons")
+        .then(res => res.json())
+        .then((clippedPolygons) => {
+          polygonLayer = L.geoJSON(clippedPolygons, {
+            style: (f) => {
+              const id = f.properties.targetId;
+              return visited[id]
+                ? { color: "red", weight: 1, fillColor: "pink", fillOpacity: 0.3 }
+                : { color: "blue", weight: 1, fillColor: "lightblue", fillOpacity: 0.1 };
+            },
+            onEachFeature: (f, layer) => {
+              const id = f.properties.targetId;
+              layers[id] = layer;
+
+              const handlers = attachVisitHandlers(id);
+              layer.on("click", handlers.click);
+              layer.on("dblclick", handlers.dblclick);
+            },
+          });
+
+          if (!editMode) polygonLayer.addTo(map);
+
+          Object.keys(visited).forEach((id) => updateUI(id));
+        })
+        .catch(err => console.error("ポリゴン読み込み失敗:", err));
+    }
+
+    // --- 統計表示 ---
+    function updateStats() {
+      const total = Object.keys(markers).length;
+      const count = Object.keys(visited).length;
+      const percent = total ? ((count / total) * 100).toFixed(1) : "0.0";
+      document.getElementById("stats").textContent =
+        `訪問済み: ${count}/${total} (${percent}%)`;
+    }
+
+    fetch("/targets")
+      .then((res) => res.json())
+      .then((castles) => {
+        const validTargets = [];
+        const seenIds = new Set();
+
+        castles.forEach((t) => {
+          if (!t.id) return;
+          if (seenIds.has(t.id)) return;
+          seenIds.add(t.id);
+          validTargets.push(t);
+        });
+
+
+        drawPins(validTargets);   /* ピンを先に描画 */
+        loadPolygons();           /* ポリゴンは非同期で後から読み込み */
+      })
+      .catch((err) => {
+        console.error("城データの取得に失敗しました:", err);
+      });
+  </script>
+</body>
+</html>
+
