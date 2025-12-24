@@ -6,6 +6,7 @@
 japan.geojson
 japan-union.geojson
 clipped-polygons.geojson
+clipped-polygons.dirty
 
 # Logs
 logs/

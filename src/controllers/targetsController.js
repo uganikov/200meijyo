@@ -1,7 +1,7 @@
 import fs from "fs";
 import { SEED_FILE } from "../../db/init.js";
 
-export function createTargetsController({ db }) {
+export function createTargetsController({ db, onTargetUpdated }) {
   function loadTargets() {
     const rows = db
       .prepare(
@@ -78,6 +78,14 @@ export function createTargetsController({ db }) {
 
       const stmt = db.prepare("UPDATE target SET lat = ?, lng = ? WHERE id = ?");
       stmt.run(lat, lng, id);
+
+      if (typeof onTargetUpdated === "function") {
+        try {
+          onTargetUpdated({ id, lat, lng });
+        } catch (e) {
+          console.warn("onTargetUpdated failed:", e);
+        }
+      }
 
       res.json({
         status: "ok",

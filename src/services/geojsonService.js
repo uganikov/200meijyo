@@ -4,24 +4,37 @@ import * as turf from "@turf/turf";
 const RAW_URL =
   "https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson";
 
-const RAW_CACHE = "./japan.geojson";
-const UNION_CACHE = "./japan-union.geojson";
-const CLIPPED_CACHE = "./clipped-polygons.geojson";
+export const RAW_CACHE_PATH = "./japan.geojson";
+export const UNION_CACHE_PATH = "./japan-union.geojson";
+export const CLIPPED_CACHE_PATH = "./clipped-polygons.geojson";
+export const CLIPPED_DIRTY_FLAG_PATH = "./clipped-polygons.dirty";
+
+export function markClippedPolygonsDirty(reason = "target-updated") {
+  try {
+    fs.writeFileSync(
+      CLIPPED_DIRTY_FLAG_PATH,
+      JSON.stringify({ reason, dirtyAt: new Date().toISOString() }) + "\n",
+      "utf8"
+    );
+  } catch (e) {
+    console.warn("[CLIP] Failed to mark cache dirty:", e);
+  }
+}
 
 async function downloadJapanGeoJSON() {
-  if (!fs.existsSync(RAW_CACHE)) {
+  if (!fs.existsSync(RAW_CACHE_PATH)) {
     console.log("[PREP] Downloading japan.geojson...");
     const res = await fetch(RAW_URL);
     const text = await res.text();
-    fs.writeFileSync(RAW_CACHE, text);
+    fs.writeFileSync(RAW_CACHE_PATH, text);
     console.log("[PREP] Saved to cache");
   }
   console.log("[PREP] Using cached japan.geojson");
-  return JSON.parse(fs.readFileSync(RAW_CACHE, "utf8"));
+  return JSON.parse(fs.readFileSync(RAW_CACHE_PATH, "utf8"));
 }
 
 async function unionJapan() {
-  if (!fs.existsSync(UNION_CACHE)) {
+  if (!fs.existsSync(UNION_CACHE_PATH)) {
     const geojson = await downloadJapanGeoJSON();
     const features = geojson.features;
 
@@ -32,18 +45,18 @@ async function unionJapan() {
       { tolerance: 0.01 }
     );
 
-    fs.writeFileSync(UNION_CACHE, JSON.stringify(result));
+    fs.writeFileSync(UNION_CACHE_PATH, JSON.stringify(result));
     console.log("[UNION] Union complete and cached");
   }
 
   console.log("[PREP] Using cached union result");
-  return JSON.parse(fs.readFileSync(UNION_CACHE, "utf8"));
+  return JSON.parse(fs.readFileSync(UNION_CACHE_PATH, "utf8"));
 }
 
 export async function generateClippedPolygons({ loadTargets }) {
-  if (fs.existsSync(CLIPPED_CACHE)) {
+  if (fs.existsSync(CLIPPED_CACHE_PATH)) {
     console.log("[CLIP] Using cached clipped polygons");
-    return JSON.parse(fs.readFileSync(CLIPPED_CACHE, "utf8"));
+    return JSON.parse(fs.readFileSync(CLIPPED_CACHE_PATH, "utf8"));
   }
 
   console.log("[CLIP] Generating clipped polygons...");
@@ -86,7 +99,7 @@ export async function generateClippedPolygons({ loadTargets }) {
     }
   });
 
-  fs.writeFileSync(CLIPPED_CACHE, JSON.stringify(clipped));
+  fs.writeFileSync(CLIPPED_CACHE_PATH, JSON.stringify(clipped));
   console.log("[CLIP] Clipped polygons cached");
 
   return clipped;
