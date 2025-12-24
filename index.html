@@ -29,6 +29,8 @@
   <div id="stats"></div>
 
   <script>
+    const API_BASE = "/api/v1";
+
     const map = L.map("map", { doubleClickZoom: false }).setView(
       [35.68, 139.76],
       5
@@ -230,7 +232,7 @@
           if (!ok) {
             marker.setLatLng([t.lat, t.lng]);
           } else {
-            fetch(`/target/${t.id}`, {
+            fetch(`${API_BASE}/target/${t.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ lat, lng }),
@@ -250,7 +252,7 @@
 
     // --- ポリゴン描画（非同期） ---
     function loadPolygons() {
-      fetch("/clipped-polygons")
+      fetch(`${API_BASE}/clipped-polygons`)
         .then(res => res.json())
         .then((clippedPolygons) => {
           polygonLayer = L.geoJSON(clippedPolygons, {
@@ -286,7 +288,7 @@
         `訪問済み: ${count}/${total} (${percent}%)`;
     }
 
-    fetch("/targets")
+    fetch(`${API_BASE}/targets`)
       .then((res) => res.json())
       .then((castles) => {
         const validTargets = [];
