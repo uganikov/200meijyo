@@ -27,10 +27,8 @@ export async function createApp() {
 
   // API routes
   // - /api/v1: versioned routes for future expansion
-  // - /: keep existing paths so the current client continues to work
   const apiRouter = createApiRouter({ db });
   app.use("/api/v1", apiRouter);
-  app.use(apiRouter);
 
   // index.html
   app.get("/", (req, res) => {
