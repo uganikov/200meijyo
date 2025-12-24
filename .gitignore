@@ -8,6 +8,13 @@ japan-union.geojson
 clipped-polygons.geojson
 clipped-polygons.dirty
 
+japan-union.fine.geojson
+japan-union.coarse.geojson
+clipped-polygons.fine.geojson
+clipped-polygons.coarse.geojson
+clipped-polygons.fine.dirty
+clipped-polygons.coarse.dirty
+
 # Logs
 logs/
 *.log

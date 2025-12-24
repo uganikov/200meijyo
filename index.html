@@ -243,9 +243,9 @@
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ lat, lng }),
             })
-              .then(res => res.json())
-              .then(data => console.log("更新成功:", data))
-              .catch(err => {
+              .then((res) => res.json())
+              .then((data) => console.log("更新成功:", data))
+              .catch((err) => {
                 console.error("更新失敗:", err);
                 marker.setLatLng([t.lat, t.lng]);
               });
@@ -257,32 +257,61 @@
     }
 
     // --- ポリゴン描画（非同期） ---
-    function loadPolygons() {
-      fetch(`${API_BASE}/clipped-polygons`)
-        .then(res => res.json())
-        .then((clippedPolygons) => {
-          polygonLayer = L.geoJSON(clippedPolygons, {
-            style: (f) => {
-              const id = f.properties.targetId;
-              return visited[id]
-                ? { color: "red", weight: 1, fillColor: "pink", fillOpacity: 0.3 }
-                : { color: "blue", weight: 1, fillColor: "lightblue", fillOpacity: 0.1 };
-            },
-            onEachFeature: (f, layer) => {
-              const id = f.properties.targetId;
-              layers[id] = layer;
+    function renderPolygons(clippedPolygons) {
+      if (polygonLayer) {
+        map.removeLayer(polygonLayer);
+      }
 
-              const handlers = attachVisitHandlers(id);
-              layer.on("click", handlers.click);
-              layer.on("dblclick", handlers.dblclick);
-            },
-          });
+      // clear previous feature refs
+      Object.keys(layers).forEach((k) => delete layers[k]);
 
-          if (!editMode) polygonLayer.addTo(map);
+      polygonLayer = L.geoJSON(clippedPolygons, {
+        style: (f) => {
+          const id = f.properties.targetId;
+          return visited[id]
+            ? { color: "red", weight: 1, fillColor: "pink", fillOpacity: 0.3 }
+            : { color: "blue", weight: 1, fillColor: "lightblue", fillOpacity: 0.1 };
+        },
+        onEachFeature: (f, layer) => {
+          const id = f.properties.targetId;
+          layers[id] = layer;
 
-          Object.keys(visited).forEach((id) => updateUI(id));
+          const handlers = attachVisitHandlers(id);
+          layer.on("click", handlers.click);
+          layer.on("dblclick", handlers.dblclick);
+        },
+      });
+
+      if (!editMode) polygonLayer.addTo(map);
+      Object.keys(visited).forEach((id) => updateUI(id));
+    }
+
+    function fetchGeoJson(url) {
+      return fetch(url)
+        .then((res) => {
+          if (res.status === 304) {
+            return fetch(url, { cache: "force-cache" });
+          }
+          return res;
         })
-        .catch(err => console.error("ポリゴン読み込み失敗:", err));
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        });
+    }
+
+    function loadPolygons() {
+      // 1) coarse を先に表示
+      fetchGeoJson(`${API_BASE}/clipped-polygons?detail=coarse`)
+        .then((coarse) => {
+          renderPolygons(coarse);
+          // 2) fine が来たら差し替え
+          return fetchGeoJson(`${API_BASE}/clipped-polygons?detail=fine`);
+        })
+        .then((fine) => {
+          renderPolygons(fine);
+        })
+        .catch((err) => console.error("ポリゴン読み込み失敗:", err));
     }
 
     // --- 統計表示 ---
