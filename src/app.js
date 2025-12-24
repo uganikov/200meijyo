@@ -13,6 +13,18 @@ export async function createApp() {
   const app = express();
   app.use(express.json());
 
+  // Runtime config for the browser (lets you switch API base per environment)
+  // Example: API_BASE=/api/v1 node server.js
+  app.get("/config.js", (req, res) => {
+    const rawApiBase = String(process.env.API_BASE ?? "/api/v1");
+    const apiBase = rawApiBase.startsWith("/") ? rawApiBase : "/api/v1";
+
+    res.type("application/javascript");
+    res.send(
+      `window.__APP_CONFIG__ = ${JSON.stringify({ apiBase })};\n`
+    );
+  });
+
   // API routes
   // - /api/v1: versioned routes for future expansion
   // - /: keep existing paths so the current client continues to work

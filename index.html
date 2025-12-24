@@ -1,10 +1,12 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <meta name="api-base" content="/api/v1" />
   <title>200名城</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <script src="/config.js"></script>
   <style>
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP",
@@ -29,7 +31,11 @@
   <div id="stats"></div>
 
   <script>
-    const API_BASE = "/api/v1";
+    const apiBaseMeta = document.querySelector('meta[name="api-base"]');
+    const API_BASE =
+      (window.__APP_CONFIG__ && window.__APP_CONFIG__.apiBase) ||
+      (apiBaseMeta && apiBaseMeta.getAttribute("content")) ||
+      "/api/v1";
 
     const map = L.map("map", { doubleClickZoom: false }).setView(
       [35.68, 139.76],
