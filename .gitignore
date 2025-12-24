@@ -2,6 +2,11 @@
 *.sqlite
 *.sqlite3
 
+# Generated GeoJSON caches (runtime artifacts)
+japan.geojson
+japan-union.geojson
+clipped-polygons.geojson
+
 # Logs
 logs/
 *.log
