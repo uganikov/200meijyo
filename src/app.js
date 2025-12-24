@@ -13,8 +13,12 @@ export async function createApp() {
   const app = express();
   app.use(express.json());
 
-  // API routes (keep existing paths so the current client continues to work)
-  app.use(createApiRouter({ db }));
+  // API routes
+  // - /api/v1: versioned routes for future expansion
+  // - /: keep existing paths so the current client continues to work
+  const apiRouter = createApiRouter({ db });
+  app.use("/api/v1", apiRouter);
+  app.use(apiRouter);
 
   // index.html
   app.get("/", (req, res) => {
