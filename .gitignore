@@ -147,6 +147,11 @@ dist
 .vscode/
 .DS_Store
 
+# Profiling artifacts
+profiles/
+*.cpuprofile
+isolate-*-v8.log
+
 # yarn v3
 .pnp.*
 .yarn/*

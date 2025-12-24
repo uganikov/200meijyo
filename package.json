@@ -6,6 +6,12 @@
   "main": "server.js",
   "scripts": {
     "dev": "node --watch server.js",
+    "prewarm:polygons:coarse": "node src/tools/prewarmPolygons.js --coarse",
+    "prewarm:polygons:fine": "node src/tools/prewarmPolygons.js --fine",
+    "prewarm:polygons:both": "node src/tools/prewarmPolygons.js --both",
+    "profile:polygons:coarse": "node --cpu-prof --cpu-prof-dir=profiles src/tools/prewarmPolygons.js --coarse",
+    "profile:polygons:fine": "node --cpu-prof --cpu-prof-dir=profiles src/tools/prewarmPolygons.js --fine",
+    "profile:polygons:both": "node --cpu-prof --cpu-prof-dir=profiles src/tools/prewarmPolygons.js --both",
     "start": "node server.js"
   },
   "dependencies": {
