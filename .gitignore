@@ -15,6 +15,12 @@ clipped-polygons.coarse.geojson
 clipped-polygons.fine.dirty
 clipped-polygons.coarse.dirty
 
+# LLM kun
+.tmp
+
+# Internal scripts (not part of the app)
+.internal_tools/
+
 # Logs
 logs/
 *.log
